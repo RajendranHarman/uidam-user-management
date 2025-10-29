@@ -112,68 +112,6 @@ All validation and exception flows are handled, including:
 | status | Enum: ACTIVE, INACTIVE, PENDING, etc. |
 | firstName, lastName, country, state, city, address1, address2, postalCode, phoneNumber, email, gender, birthDate, locale, notificationConsent, timeZone, devIds, roles, additionalAttributes | See above for type and meaning. |
 
-### Flow Diagram (PlantUML)
-```plantuml
-@startuml
-actor AdminUser
-box "API Gateway" #LightBlue
-participant "api-gateway"
-end box
-box "User Management MS" #LightGreen
-participant "UserMgmtMS"
-end box
-participant "PostgresDB"
-participant "Notification Center"
-
-AdminUser -> api-gateway: POST /v1/users (payload, headers)
-api-gateway -> UserMgmtMS: Forward request
-UserMgmtMS -> UserMgmtMS: Validate username pattern, password policy
-UserMgmtMS -> UserMgmtMS: Validate admin permissions (unless self-add)
-UserMgmtMS -> UserMgmtMS: validateAccountAndRoles(userDto)
-UserMgmtMS -> UserMgmtMS: Check for duplicate user in DB
-UserMgmtMS -> PostgresDB: findByUserNameIgnoreCaseAndStatusNot
-alt User Exists
-PostgresDB -> UserMgmtMS: User found
-UserMgmtMS -> api-gateway: 409 Conflict (User exists)
-api-gateway -> AdminUser: 409 Conflict
-else User Not Exists
-PostgresDB -> UserMgmtMS: No user found
-UserMgmtMS -> UserMgmtMS: Validate additional attributes (if enabled)
-UserMgmtMS -> UserMgmtMS: getIsUserStatusLifeCycleEnabled()
-UserMgmtMS -> UserMgmtMS: Set user status (PENDING/ACTIVE)
-UserMgmtMS -> UserMgmtMS: PasswordUtils.getSalt()
-UserMgmtMS -> UserMgmtMS: PasswordUtils.getSecurePassword()
-UserMgmtMS -> UserMgmtMS: UserMapper.mapToUser(userDto)
-UserMgmtMS -> UserMgmtMS: mapToAccountsAndRoles(userDto, loggedInUserId)
-UserMgmtMS -> UserMgmtMS: Set user addresses, account-role mapping
-UserMgmtMS -> PostgresDB: Save user entity
-UserMgmtMS -> PostgresDB: Save account-role mapping
-UserMgmtMS -> UserMgmtMS: Set userId in mapping
-UserMgmtMS -> UserMgmtMS: uidamMetricsService.incrementCounter
-UserMgmtMS -> UserMgmtMS: addRoleNamesAndMapToUserResponse
-UserMgmtMS -> UserMgmtMS: persistAdditionalAttributes (if present)
-UserMgmtMS -> PostgresDB: Save additional attributes
-UserMgmtMS -> PostgresDB: Save password history
-UserMgmtMS -> Notification Center: Send email verification
-alt Notification Success
-Notification Center -> UserMgmtMS: Notification sent
-else Notification Failure
-Notification Center -> UserMgmtMS: Exception (log warning)
-end
-UserMgmtMS -> api-gateway: 201 Created (User details)
-api-gateway -> AdminUser: 201 Created
-end
-else Validation Error
-UserMgmtMS -> api-gateway: 400 Bad Request
-api-gateway -> AdminUser: 400 Bad Request
-end
-else Unexpected Error
-UserMgmtMS -> api-gateway: 500 Internal Server Error
-api-gateway -> AdminUser: 500 Internal Server Error
-end
-@enduml
-```
-
 ### 2. Get User by ID (v1)
 
 #### API Description
@@ -228,44 +166,6 @@ This API retrieves a single user identified by their unique user ID. It validate
 | status | Enum: ACTIVE, INACTIVE, PENDING, etc. |
 | firstName, lastName, country, state, city, address1, address2, postalCode, phoneNumber, email, gender, birthDate, locale, notificationConsent, timeZone, devIds, roles, additionalAttributes | See above for type and meaning. |
 
-#### Flow Diagram (PlantUML)
-```plantuml
-@startuml
-actor Actor
-box "API Gateway" #LightBlue
-participant "api-gateway"
-end box
-box "User Management MS" #LightGreen
-participant "UserMgmtMS"
-end box
-participant "PostgresDB"
-
-Actor -> api-gateway: GET /v1/users/{id} (headers)
-api-gateway -> UserMgmtMS: Forward request
-UserMgmtMS -> UserMgmtMS: Validate user ID
-UserMgmtMS -> UserMgmtMS: Resolve tenantId
-UserMgmtMS -> UserMgmtMS: Update tenantContext
-UserMgmtMS -> PostgresDB: Find user by ID (exclude deleted)
-alt User Found
-PostgresDB -> UserMgmtMS: User entity
-UserMgmtMS -> api-gateway: 200 OK (User details)
-api-gateway -> Actor: 200 OK
-else User Not Found
-PostgresDB -> UserMgmtMS: No user found
-UserMgmtMS -> api-gateway: 404 Not Found
-api-gateway -> Actor: 404 Not Found
-end
-else Invalid ID
-UserMgmtMS -> api-gateway: 400 Bad Request
-api-gateway -> Actor: 400 Bad Request
-end
-else Unexpected Error
-UserMgmtMS -> api-gateway: 500 Internal Server Error
-api-gateway -> Actor: 500 Internal Server Error
-end
-@enduml
-```
-
 ### 3. Get External User by ID (v1)
 
 #### API Description
@@ -315,44 +215,6 @@ Retrieves an external user by their unique user ID. Validates the user ID, ensur
 | status | Enum: ACTIVE, INACTIVE, PENDING, etc. |
 | firstName, lastName, country, state, city, address1, address2, postalCode, phoneNumber, email, gender, birthDate, locale, notificationConsent, timeZone, devIds, roles, additionalAttributes | See above for type and meaning. |
 
-#### Flow Diagram (PlantUML)
-```plantuml
-@startuml
-actor Actor
-box "API Gateway" #LightBlue
-participant "api-gateway"
-end box
-box "User Management MS" #LightGreen
-participant "UserMgmtMS"
-end box
-participant "PostgresDB"
-
-Actor -> api-gateway: GET /v1/users/external/{id} (headers)
-api-gateway -> UserMgmtMS: Forward request
-UserMgmtMS -> UserMgmtMS: Validate user ID
-UserMgmtMS -> UserMgmtMS: Resolve tenantId
-UserMgmtMS -> UserMgmtMS: Update tenantContext
-UserMgmtMS -> PostgresDB: Find user by ID (exclude deleted)
-alt User Found & External
-PostgresDB -> UserMgmtMS: User entity
-UserMgmtMS -> api-gateway: 200 OK (User details)
-api-gateway -> Actor: 200 OK
-else User Not Found or Not External
-PostgresDB -> UserMgmtMS: No user found or not external
-UserMgmtMS -> api-gateway: 404 Not Found
-api-gateway -> Actor: 404 Not Found
-end
-else Invalid ID
-UserMgmtMS -> api-gateway: 400 Bad Request
-api-gateway -> Actor: 400 Bad Request
-end
-else Unexpected Error
-UserMgmtMS -> api-gateway: 500 Internal Server Error
-api-gateway -> Actor: 500 Internal Server Error
-end
-@enduml
-```
-
 ### 4. Get User Attributes (v1)
 
 #### API Description
@@ -391,32 +253,6 @@ Retrieves all user attribute metadata for the tenant, including definitions, typ
 | allowedValues | List of allowed values |
 | description | Description of attribute |
 
-#### Flow Diagram (PlantUML)
-```plantuml
-@startuml
-actor Actor
-box "API Gateway" #LightBlue
-participant "api-gateway"
-end box
-box "User Management MS" #LightGreen
-participant "UserMgmtMS"
-end box
-participant "PostgresDB"
-
-Actor -> api-gateway: GET /v1/users/attributes (headers)
-api-gateway -> UserMgmtMS: Forward request
-UserMgmtMS -> UserMgmtMS: Resolve tenantId
-UserMgmtMS -> PostgresDB: Query attribute metadata
-PostgresDB -> UserMgmtMS: Attribute metadata list
-UserMgmtMS -> api-gateway: 200 OK (metadata)
-api-gateway -> Actor: 200 OK
-else Unexpected Error
-UserMgmtMS -> api-gateway: 500 Internal Server Error
-api-gateway -> Actor: 500 Internal Server Error
-end
-@enduml
-```
-
 ### 5. Update User Attributes (v1)
 
 #### API Description
@@ -450,39 +286,6 @@ Allows updating custom attributes for a user. Validates attribute names, types, 
 | Attribute | Definition |
 |-----------|------------|
 | updatedAttributes | Map of updated attribute name-value pairs |
-
-#### Flow Diagram (PlantUML)
-```plantuml
-@startuml
-actor AdminUser
-box "API Gateway" #LightBlue
-participant "api-gateway"
-end box
-box "User Management MS" #LightGreen
-participant "UserMgmtMS"
-end box
-participant "PostgresDB"
-
-AdminUser -> api-gateway: PUT /v1/users/attributes (payload, headers)
-api-gateway -> UserMgmtMS: Forward request
-UserMgmtMS -> UserMgmtMS: Validate attributes against metadata
-UserMgmtMS -> UserMgmtMS: Check mandatory attributes
-UserMgmtMS -> UserMgmtMS: Validate types and patterns
-UserMgmtMS -> PostgresDB: Update attributes
-alt Success
-PostgresDB -> UserMgmtMS: Attributes updated
-UserMgmtMS -> api-gateway: 200 OK (updated attributes)
-api-gateway -> AdminUser: 200 OK
-else Validation Error
-UserMgmtMS -> api-gateway: 400 Bad Request
-api-gateway -> AdminUser: 400 Bad Request
-end
-else Unexpected Error
-UserMgmtMS -> api-gateway: 500 Internal Server Error
-api-gateway -> AdminUser: 500 Internal Server Error
-end
-@enduml
-```
 
 ### 6. Update User by ID (v1)
 
@@ -518,7 +321,9 @@ Updates user details for a given user ID. Validates input, checks permissions, a
 - **locale**: String (optional, max 35 chars)
 - **notificationConsent**: Boolean (optional)
 - **timeZone**: String (optional)
-- **additionalAttributes**: Map<String, Object> (optional)
+- **devIds**: Set<String> (device IDs)
+- **roles**: Set<String>
+- **additionalAttributes**: Map<String, Object>
 
 #### Request Attribute Definitions
 | Attribute | Definition |
@@ -556,46 +361,6 @@ Updates user details for a given user ID. Validates input, checks permissions, a
 | status | Enum: ACTIVE, INACTIVE, PENDING, etc. |
 | firstName, lastName, country, state, city, address1, address2, postalCode, phoneNumber, email, gender, birthDate, locale, notificationConsent, timeZone, devIds, roles, additionalAttributes | See above for type and meaning. |
 
-#### Flow Diagram (PlantUML)
-```plantuml
-@startuml
-actor AdminUser
-box "API Gateway" #LightBlue
-participant "api-gateway"
-end box
-box "User Management MS" #LightGreen
-participant "UserMgmtMS"
-end box
-participant "PostgresDB"
-
-AdminUser -> api-gateway: PATCH /v1/users/{id} (payload, headers)
-api-gateway -> UserMgmtMS: Forward request
-UserMgmtMS -> UserMgmtMS: Validate user ID
-UserMgmtMS -> UserMgmtMS: Validate payload fields
-UserMgmtMS -> UserMgmtMS: Check permissions
-UserMgmtMS -> PostgresDB: Find user by ID
-alt User Found
-PostgresDB -> UserMgmtMS: User entity
-UserMgmtMS -> UserMgmtMS: Update allowed fields
-UserMgmtMS -> PostgresDB: Save updated user
-UserMgmtMS -> api-gateway: 200 OK (updated user)
-api-gateway -> AdminUser: 200 OK
-else User Not Found
-PostgresDB -> UserMgmtMS: No user found
-UserMgmtMS -> api-gateway: 404 Not Found
-api-gateway -> AdminUser: 404 Not Found
-end
-else Validation Error
-UserMgmtMS -> api-gateway: 400 Bad Request
-api-gateway -> AdminUser: 400 Bad Request
-end
-else Unexpected Error
-UserMgmtMS -> api-gateway: 500 Internal Server Error
-api-gateway -> AdminUser: 500 Internal Server Error
-end
-@enduml
-```
-
 ### 7. Delete User by ID (v1)
 
 #### API Description
@@ -621,44 +386,6 @@ Deletes a user identified by their unique user ID. Validates the user ID, checks
 | Attribute | Definition |
 |-----------|------------|
 | message | Confirmation message |
-
-#### Flow Diagram (PlantUML)
-```plantuml
-@startuml
-actor AdminUser
-box "API Gateway" #LightBlue
-participant "api-gateway"
-end box
-box "User Management MS" #LightGreen
-participant "UserMgmtMS"
-end box
-participant "PostgresDB"
-
-AdminUser -> api-gateway: DELETE /v1/users/{id} (headers)
-api-gateway -> UserMgmtMS: Forward request
-UserMgmtMS -> UserMgmtMS: Validate user ID
-UserMgmtMS -> UserMgmtMS: Check permissions
-UserMgmtMS -> PostgresDB: Find user by ID
-alt User Found
-PostgresDB -> UserMgmtMS: User entity
-UserMgmtMS -> PostgresDB: Mark user as deleted (soft delete)
-UserMgmtMS -> api-gateway: 200 OK (message)
-api-gateway -> AdminUser: 200 OK
-else User Not Found
-PostgresDB -> UserMgmtMS: No user found
-UserMgmtMS -> api-gateway: 404 Not Found
-api-gateway -> AdminUser: 404 Not Found
-end
-else Invalid ID
-UserMgmtMS -> api-gateway: 400 Bad Request
-api-gateway -> AdminUser: 400 Bad Request
-end
-else Unexpected Error
-UserMgmtMS -> api-gateway: 500 Internal Server Error
-api-gateway -> AdminUser: 500 Internal Server Error
-end
-@enduml
-```
 
 ### 8. Delete Users by Filter (v1)
 
@@ -695,44 +422,6 @@ Deletes multiple users matching a filter criteria. Validates filter, checks perm
 |-----------|------------|
 | message | Confirmation message |
 | deletedCount | Number of users deleted |
-
-#### Flow Diagram (PlantUML)
-```plantuml
-@startuml
-actor AdminUser
-box "API Gateway" #LightBlue
-participant "api-gateway"
-end box
-box "User Management MS" #LightGreen
-participant "UserMgmtMS"
-end box
-participant "PostgresDB"
-
-AdminUser -> api-gateway: DELETE /v1/users (payload, headers)
-api-gateway -> UserMgmtMS: Forward request
-UserMgmtMS -> UserMgmtMS: Validate filter
-UserMgmtMS -> UserMgmtMS: Check permissions
-UserMgmtMS -> PostgresDB: Find users by filter
-alt Users Found
-PostgresDB -> UserMgmtMS: User entities
-UserMgmtMS -> PostgresDB: Mark users as deleted (soft delete)
-UserMgmtMS -> api-gateway: 200 OK (message, count)
-api-gateway -> AdminUser: 200 OK
-else No Users Found
-PostgresDB -> UserMgmtMS: No users found
-UserMgmtMS -> api-gateway: 200 OK (message, count=0)
-api-gateway -> AdminUser: 200 OK
-end
-else Invalid Filter
-UserMgmtMS -> api-gateway: 400 Bad Request
-api-gateway -> AdminUser: 400 Bad Request
-end
-else Unexpected Error
-UserMgmtMS -> api-gateway: 500 Internal Server Error
-api-gateway -> AdminUser: 500 Internal Server Error
-end
-@enduml
-```
 
 ### 9. Filter Users (v1)
 
@@ -786,36 +475,6 @@ Filters users based on provided criteria such as status, roles, account, attribu
 | page | Current page number |
 | size | Page size |
 
-#### Flow Diagram (PlantUML)
-```plantuml
-@startuml
-actor Actor
-box "API Gateway" #LightBlue
-participant "api-gateway"
-end box
-box "User Management MS" #LightGreen
-participant "UserMgmtMS"
-end box
-participant "PostgresDB"
-
-Actor -> api-gateway: POST /v1/users/filter (payload, headers)
-api-gateway -> UserMgmtMS: Forward request
-UserMgmtMS -> UserMgmtMS: Validate filter object
-UserMgmtMS -> PostgresDB: Query users by filter
-PostgresDB -> UserMgmtMS: Paginated user list
-UserMgmtMS -> api-gateway: 200 OK (users, count, page, size)
-api-gateway -> Actor: 200 OK
-else Invalid Filter
-UserMgmtMS -> api-gateway: 400 Bad Request
-api-gateway -> Actor: 400 Bad Request
-end
-else Unexpected Error
-UserMgmtMS -> api-gateway: 500 Internal Server Error
-api-gateway -> Actor: 500 Internal Server Error
-end
-@enduml
-```
-
 ### 10. Get Self User (v1)
 
 #### API Description
@@ -839,43 +498,6 @@ Retrieves details of the currently authenticated user (self). Validates authenti
 
 #### Response Attribute Definitions
 - See user response attribute definitions above
-
-#### Flow Diagram (PlantUML)
-```plantuml
-@startuml
-actor SelfUser
-box "API Gateway" #LightBlue
-participant "api-gateway"
-end box
-box "User Management MS" #LightGreen
-participant "UserMgmtMS"
-end box
-participant "PostgresDB"
-
-SelfUser -> api-gateway: GET /v1/users/self (headers)
-api-gateway -> UserMgmtMS: Forward request
-UserMgmtMS -> UserMgmtMS: Validate authentication
-UserMgmtMS -> UserMgmtMS: Resolve user context
-UserMgmtMS -> PostgresDB: Find user by loggedInUserId
-alt User Found
-PostgresDB -> UserMgmtMS: User entity
-UserMgmtMS -> api-gateway: 200 OK (user details)
-api-gateway -> SelfUser: 200 OK
-else User Not Found
-PostgresDB -> UserMgmtMS: No user found
-UserMgmtMS -> api-gateway: 404 Not Found
-api-gateway -> SelfUser: 404 Not Found
-end
-else Unauthorized
-UserMgmtMS -> api-gateway: 401 Unauthorized
-api-gateway -> SelfUser: 401 Unauthorized
-end
-else Unexpected Error
-UserMgmtMS -> api-gateway: 500 Internal Server Error
-api-gateway -> SelfUser: 500 Internal Server Error
-end
-@enduml
-```
 
 ### 11. Update Self User (v1)
 
@@ -924,49 +546,6 @@ Updates details of the currently authenticated user (self). Validates authentica
 #### Response Attribute Definitions
 - See user response attribute definitions above
 
-#### Flow Diagram (PlantUML)
-```plantuml
-@startuml
-actor SelfUser
-box "API Gateway" #LightBlue
-participant "api-gateway"
-end box
-box "User Management MS" #LightGreen
-participant "UserMgmtMS"
-end box
-participant "PostgresDB"
-
-SelfUser -> api-gateway: PATCH /v1/users/self (payload, headers)
-api-gateway -> UserMgmtMS: Forward request
-UserMgmtMS -> UserMgmtMS: Validate authentication
-UserMgmtMS -> UserMgmtMS: Validate payload fields
-UserMgmtMS -> PostgresDB: Find user by loggedInUserId
-alt User Found
-PostgresDB -> UserMgmtMS: User entity
-UserMgmtMS -> UserMgmtMS: Update allowed fields
-UserMgmtMS -> PostgresDB: Save updated user
-UserMgmtMS -> api-gateway: 200 OK (updated user)
-api-gateway -> SelfUser: 200 OK
-else User Not Found
-PostgresDB -> UserMgmtMS: No user found
-UserMgmtMS -> api-gateway: 404 Not Found
-api-gateway -> SelfUser: 404 Not Found
-end
-else Validation Error
-UserMgmtMS -> api-gateway: 400 Bad Request
-api-gateway -> SelfUser: 400 Bad Request
-end
-else Unauthorized
-UserMgmtMS -> api-gateway: 401 Unauthorized
-api-gateway -> SelfUser: 401 Unauthorized
-end
-else Unexpected Error
-UserMgmtMS -> api-gateway: 500 Internal Server Error
-api-gateway -> SelfUser: 500 Internal Server Error
-end
-@enduml
-```
-
 ### 12. Delete Self User (v1)
 
 #### API Description
@@ -993,43 +572,6 @@ Deletes the currently authenticated user (self). Validates authentication, check
 |-----------|------------|
 | message | Confirmation message |
 
-#### Flow Diagram (PlantUML)
-```plantuml
-@startuml
-actor SelfUser
-box "API Gateway" #LightBlue
-participant "api-gateway"
-end box
-box "User Management MS" #LightGreen
-participant "UserMgmtMS"
-end box
-participant "PostgresDB"
-
-SelfUser -> api-gateway: DELETE /v1/users/self (headers)
-api-gateway -> UserMgmtMS: Forward request
-UserMgmtMS -> UserMgmtMS: Validate authentication
-UserMgmtMS -> PostgresDB: Find user by loggedInUserId
-alt User Found
-PostgresDB -> UserMgmtMS: User entity
-UserMgmtMS -> PostgresDB: Mark user as deleted (soft delete)
-UserMgmtMS -> api-gateway: 200 OK (message)
-api-gateway -> SelfUser: 200 OK
-else User Not Found
-PostgresDB -> UserMgmtMS: No user found
-UserMgmtMS -> api-gateway: 404 Not Found
-api-gateway -> SelfUser: 404 Not Found
-end
-else Unauthorized
-UserMgmtMS -> api-gateway: 401 Unauthorized
-api-gateway -> SelfUser: 401 Unauthorized
-end
-else Unexpected Error
-UserMgmtMS -> api-gateway: 500 Internal Server Error
-api-gateway -> SelfUser: 500 Internal Server Error
-end
-@enduml
-```
-
 ### 13. Self User Password Recovery (v1)
 
 #### API Description
@@ -1055,51 +597,6 @@ Initiates password recovery for the currently authenticated user (self) by sendi
 | Attribute | Definition |
 |-----------|------------|
 | message | Confirmation message |
-
-#### Flow Diagram (PlantUML)
-```plantuml
-@startuml
-actor SelfUser
-box "API Gateway" #LightBlue
-participant "api-gateway"
-end box
-box "User Management MS" #LightGreen
-participant "UserMgmtMS"
-end box
-participant "PostgresDB"
-participant "Notification Center"
-
-SelfUser -> api-gateway: POST /v1/users/self/recovery/forgot-password (headers)
-api-gateway -> UserMgmtMS: Forward request
-UserMgmtMS -> UserMgmtMS: Validate authentication
-UserMgmtMS -> PostgresDB: Find user by loggedInUserId
-alt User Found
-PostgresDB -> UserMgmtMS: User entity
-UserMgmtMS -> Notification Center: Send password recovery email
-alt Notification Success
-Notification Center -> UserMgmtMS: Notification sent
-UserMgmtMS -> api-gateway: 200 OK (message)
-api-gateway -> SelfUser: 200 OK
-else Notification Failure
-Notification Center -> UserMgmtMS: Exception (log warning)
-UserMgmtMS -> api-gateway: 500 Internal Server Error
-api-gateway -> SelfUser: 500 Internal Server Error
-end
-else User Not Found
-PostgresDB -> UserMgmtMS: No user found
-UserMgmtMS -> api-gateway: 404 Not Found
-api-gateway -> SelfUser: 404 Not Found
-end
-else Unauthorized
-UserMgmtMS -> api-gateway: 401 Unauthorized
-api-gateway -> SelfUser: 401 Unauthorized
-end
-else Unexpected Error
-UserMgmtMS -> api-gateway: 500 Internal Server Error
-api-gateway -> SelfUser: 500 Internal Server Error
-end
-@enduml
-```
 
 ### 14. Change User Status (v1)
 
@@ -1159,45 +656,6 @@ Changes the status of a user (e.g., activate, deactivate, suspend) by user ID. V
 | userName | Username |
 | status | Enum: ACTIVE, INACTIVE, PENDING, etc. |
 | firstName, lastName, country, state, city, address1, address2, postalCode, phoneNumber, email, gender, birthDate, locale, notificationConsent, timeZone, devIds, roles, additionalAttributes | See above for type and meaning. |
-
-#### Flow Diagram (PlantUML)
-```plantuml
-@startuml
-actor AdminUser
-box "API Gateway" #LightBlue
-participant "api-gateway"
-end box
-box "User Management MS" #LightGreen
-participant "UserMgmtMS"
-end box
-participant "PostgresDB"
-
-AdminUser -> api-gateway: PATCH /v1/users/change-status (payload, headers)
-api-gateway -> UserMgmtMS: Forward request
-UserMgmtMS -> UserMgmtMS: Validate permissions
-UserMgmtMS -> UserMgmtMS: Validate userId and newStatus
-UserMgmtMS -> PostgresDB: Find user by userId
-alt User Found
-PostgresDB -> UserMgmtMS: User entity
-UserMgmtMS -> UserMgmtMS: Validate allowed status transition
-UserMgmtMS -> PostgresDB: Update user status
-UserMgmtMS -> api-gateway: 200 OK (updated user)
-api-gateway -> AdminUser: 200 OK
-else User Not Found
-PostgresDB -> UserMgmtMS: No user found
-UserMgmtMS -> api-gateway: 404 Not Found
-api-gateway -> AdminUser: 404 Not Found
-end
-else Invalid Status
-UserMgmtMS -> api-gateway: 400 Bad Request
-api-gateway -> AdminUser: 400 Bad Request
-end
-else Unexpected Error
-UserMgmtMS -> api-gateway: 500 Internal Server Error
-api-gateway -> AdminUser: 500 Internal Server Error
-end
-@enduml
-```
 
 ### 15. Add External User (v1)
 
@@ -1309,57 +767,6 @@ All validation and exception flows are handled, including:
 | status | Enum: ACTIVE, INACTIVE, PENDING, etc. |
 | firstName, lastName, country, state, city, address1, address2, postalCode, phoneNumber, email, gender, birthDate, locale, notificationConsent, timeZone, devIds, roles, additionalAttributes | See above for type and meaning. |
 
-#### Flow Diagram (PlantUML)
-```plantuml
-@startuml
-actor AdminUser
-box "API Gateway" #LightBlue
-participant "api-gateway"
-end box
-box "User Management MS" #LightGreen
-participant "UserMgmtMS"
-end box
-participant "PostgresDB"
-participant "Notification Center"
-
-AdminUser -> api-gateway: POST /v1/users/external (payload, headers)
-api-gateway -> UserMgmtMS: Forward request
-UserMgmtMS -> UserMgmtMS: Validate payload fields
-UserMgmtMS -> UserMgmtMS: Validate roles and attributes
-UserMgmtMS -> PostgresDB: Check for duplicate user
-alt User Exists
-PostgresDB -> UserMgmtMS: User found
-UserMgmtMS -> api-gateway: 409 Conflict (User exists)
-api-gateway -> AdminUser: 409 Conflict
-else User Not Exists
-PostgresDB -> UserMgmtMS: No user found
-UserMgmtMS -> UserMgmtMS: Hash password, map DTO to entity
-UserMgmtMS -> UserMgmtMS: Set user status to PENDING
-UserMgmtMS -> UserMgmtMS: mapToAccountsAndRoles(userDto, loggedInUserId)
-UserMgmtMS -> PostgresDB: Save user entity
-UserMgmtMS -> PostgresDB: Save account-role mapping
-UserMgmtMS -> UserMgmtMS: persistAdditionalAttributes (if present)
-UserMgmtMS -> PostgresDB: Save additional attributes
-UserMgmtMS -> Notification Center: Send email verification
-alt Notification Success
-Notification Center -> UserMgmtMS: Notification sent
-else Notification Failure
-Notification Center -> UserMgmtMS: Exception (log warning)
-end
-UserMgmtMS -> api-gateway: 201 Created (user details)
-api-gateway -> AdminUser: 201 Created
-end
-else Validation Error
-UserMgmtMS -> api-gateway: 400 Bad Request
-api-gateway -> AdminUser: 400 Bad Request
-end
-else Unexpected Error
-UserMgmtMS -> api-gateway: 500 Internal Server Error
-api-gateway -> AdminUser: 500 Internal Server Error
-end
-@enduml
-```
-
 ### 16. Delete External User by ID (v1)
 
 #### API Description
@@ -1385,361 +792,3 @@ Deletes an external user identified by their unique user ID. Validates user ID, 
 | Attribute | Definition |
 |-----------|------------|
 | message | Confirmation message |
-
-#### Flow Diagram (PlantUML)
-```plantuml
-@startuml
-actor AdminUser
-box "API Gateway" #LightBlue
-participant "api-gateway"
-end box
-box "User Management MS" #LightGreen
-participant "UserMgmtMS"
-end box
-participant "PostgresDB"
-
-AdminUser -> api-gateway: DELETE /v1/users/external/{id} (headers)
-api-gateway -> UserMgmtMS: Forward request
-UserMgmtMS -> UserMgmtMS: Validate user ID
-UserMgmtMS -> PostgresDB: Find user by ID
-alt User Found & External
-PostgresDB -> UserMgmtMS: User entity
-UserMgmtMS -> PostgresDB: Mark user as deleted (soft delete)
-UserMgmtMS -> api-gateway: 200 OK (message)
-api-gateway -> AdminUser: 200 OK
-else User Not Found or Not External
-PostgresDB -> UserMgmtMS: No user found or not external
-UserMgmtMS -> api-gateway: 404 Not Found
-api-gateway -> AdminUser: 404 Not Found
-end
-else Invalid ID
-UserMgmtMS -> api-gateway: 400 Bad Request
-api-gateway -> AdminUser: 400 Bad Request
-end
-else Unexpected Error
-UserMgmtMS -> api-gateway: 500 Internal Server Error
-api-gateway -> AdminUser: 500 Internal Server Error
-end
-@enduml
-```
-
----
-
-# Account Management API Documentation
-
-## 1. Associate/Dissociate Accounts to User
-
-**Description:**
-Associates or dissociates accounts to a specified user. Requires `ManageUsers` or `ManageUserRolesAndPermissions` scope. Validates user existence, payload structure, and operation type. Throws errors for invalid user, payload, or association failures.
-
-**API Details:**
-| Field         | Value                                                      |
-|---------------|------------------------------------------------------------|
-| Endpoint      | `/v1/users/{userId}/associate-accounts`                   |
-| Method        | PATCH                                                     |
-| Required Scope| `ManageUsers`, `ManageUserRolesAndPermissions`            |
-| Headers       | `loggedInUserId`                                          |
-| Path Param    | `userId` (BigInteger, required)                           |
-| Payload       | List of `AssociateAccountDto`                             |
-| Attributes    | `op` (ADD/REMOVE), `value` (account ID)                   |
-| Response      | `AssociateAccountResponse`                                |
-| Status Codes  | 200 (OK), 400 (Validation Error), 404 (User Not Found), 500 (Association Error) |
-
-#### Payload Attribute Definitions
-| Attribute | Type | Required | Description |
-|-----------|------|----------|-------------|
-| op        | String | Yes | Operation type: "ADD" or "REMOVE". Must match allowed pattern. |
-| value     | String | Yes | Account ID to associate/dissociate. |
-
-#### Response Attribute Definitions
-| Attribute | Type | Description |
-|-----------|------|-------------|
-| accounts  | Set<UserAccounts> | Set of account objects |
-| account   | String | Account name |
-
-#### Validation Logic
-- `op` must be "ADD" or "REMOVE"
-- `value` must be present
-- User must exist
-
-#### Exception Handling
-- 400: Validation errors
-- 404: User not found
-- 500: Association failure (`UserAccountMappingException`)
-
-#### Sequence Diagram
-@startuml
-actor AdminUser
-box "API Gateway" #LightBlue
-participant "api-gateway"
-end box
-box "User Management MS" #LightGreen
-participant "UserMgmtMS"
-end box
-participant "PostgresDB"
-
-AdminUser -> api-gateway: PATCH /v1/users/{userId}/associate-accounts (payload, headers)
-api-gateway -> UserMgmtMS: Forward request
-UserMgmtMS -> UserMgmtMS: Validate user existence
-UserMgmtMS -> UserMgmtMS: Validate payload structure
-UserMgmtMS -> UserMgmtMS: Check operation type
-UserMgmtMS -> PostgresDB: Find user by userId
-alt User Found
-PostgresDB -> UserMgmtMS: User entity
-UserMgmtMS -> UserMgmtMS: Perform ADD or REMOVE operation
-UserMgmtMS -> PostgresDB: Update user-account mapping
-UserMgmtMS -> api-gateway: 200 OK (updated accounts)
-api-gateway -> AdminUser: 200 OK
-else User Not Found
-PostgresDB -> UserMgmtMS: No user found
-UserMgmtMS -> api-gateway: 404 Not Found
-api-gateway -> AdminUser: 404 Not Found
-end
-else Validation Error
-UserMgmtMS -> api-gateway: 400 Bad Request
-api-gateway -> AdminUser: 400 Bad Request
-end
-else Unexpected Error
-UserMgmtMS -> api-gateway: 500 Internal Server Error
-api-gateway -> AdminUser: 500 Internal Server Error
-end
-@enduml
-
----
-
-# Role Management API Documentation
-
-## 1. Create Role
-
-### API Description
-This API allows an admin user to create a new role in the UIDAM system. The flow covers:
-- **Role name and description validation**: Ensures role name is unique and description is provided.
-- **Permission validation**: Checks if the admin user has permission to create roles.
-- **Default permissions assignment**: Assigns default permissions to the new role.
-- **Role entity creation**: Maps DTO to entity and saves role in database.
-- **Metrics update**: Increments metrics for role creation.
-- **Returns created role details**.
-
-All validation and exception flows are handled, including:
-- Invalid role name or description (400 Bad Request)
-- Duplicate role name (409 Conflict)
-- Database or system errors (500 Internal Server Error)
-
-### API Details
-| Key                   | Value |
-|-----------------------|-------|
-| End-point             | `/v1/roles` |
-| Method                | POST |
-| Allowed Scopes        | ManageRoles |
-| Request Headers       | `tenantId` (optional), `correlationId` (optional), `scopes` (mandatory), `loggedInUserId` (optional) |
-| Request Parameters    | None |
-| Payload               | See below for full attribute list |
-| Request Attribute Definition | See below for full attribute definitions |
-| Response Payload      | See below for full attribute list |
-| Response Status       | <ul><li>201 - Created: Role successfully created</li><li>400 - Bad Request: Validation failed</li><li>409 - Conflict: Role already exists</li><li>500 - Internal Server Error: Unexpected error</li></ul> |
-
-#### Request Payload Attributes
-- **roleName**: String (required, unique, validated by regex and length)
-- **description**: String (required, max 255 chars)
-- **permissions**: Set<String> (optional, default: empty set)
-
-#### Request Attribute Definitions
-| Attribute | Definition |
-|-----------|------------|
-| roleName | Required. Unique role name. Must match pattern and length. |
-| description | Required. Role description. |
-| permissions | Optional. Set of permissions. |
-
-#### Response Payload Attributes
-- **id**: BigInteger (role id)
-- **roleName**: String
-- **description**: String
-- **permissions**: Set<String>
-
-#### Response Attribute Definitions
-| Attribute | Definition |
-|-----------|------------|
-| id | Role unique identifier (BigInteger) |
-| roleName | Role name |
-| description | Role description |
-| permissions | Set of permissions |
-
-### Flow Diagram (PlantUML)
-```plantuml
-@startuml
-actor AdminUser
-box "API Gateway" #LightBlue
-participant "api-gateway"
-end box
-box "Role Management MS" #LightGreen
-participant "RoleMgmtMS"
-end box
-participant "PostgresDB"
-
-AdminUser -> api-gateway: POST /v1/roles (payload, headers)
-api-gateway -> RoleMgmtMS: Forward request
-RoleMgmtMS -> RoleMgmtMS: Validate role name and description
-RoleMgmtMS -> RoleMgmtMS: Check admin permissions
-RoleMgmtMS -> PostgresDB: Check for duplicate role
-alt Role Exists
-PostgresDB -> RoleMgmtMS: Role found
-RoleMgmtMS -> api-gateway: 409 Conflict (Role exists)
-api-gateway -> AdminUser: 409 Conflict
-else Role Not Exists
-PostgresDB -> RoleMgmtMS: No role found
-RoleMgmtMS -> RoleMgmtMS: Map DTO to entity
-RoleMgmtMS -> PostgresDB: Save role entity
-RoleMgmtMS -> RoleMgmtMS: uidamMetricsService.incrementCounter
-RoleMgmtMS -> api-gateway: 201 Created (Role details)
-api-gateway -> AdminUser: 201 Created
-end
-else Validation Error
-RoleMgmtMS -> api-gateway: 400 Bad Request
-api-gateway -> AdminUser: 400 Bad Request
-end
-else Unexpected Error
-RoleMgmtMS -> api-gateway: 500 Internal Server Error
-api-gateway -> AdminUser: 500 Internal Server Error
-end
-@enduml
-```
-
-## 2. Get Role By Name
-
-### API Description
-This API retrieves a role identified by its unique role name. It validates the role name, checks if the role exists, and returns the role's details. The flow includes:
-- Validation of role name presence
-- Database lookup for role by name
-- Returns role details if found
-- Handles exceptions for not found roles
-
-### API Details
-| Key                   | Value |
-|-----------------------|-------|
-| End-point             | `/v1/roles/{name}` |
-| Method                | GET |
-| Allowed Scopes        | ManageUserRolesAndPermissions |
-| Request Headers       | None |
-| Request Parameters    | `name` (path, required, String) |
-| Payload               | None |
-| Request Attribute Definition | `name`: Required. Role unique identifier (String). |
-| Response Payload      | `BaseResponse` |
-| Response Status       | <ul><li>200 - OK: Role found</li><li>404 - Not Found: Role does not exist</li><li>400 - Bad Request: Invalid role name</li><li>500 - Internal Server Error: Unexpected error</li></ul> |
-
-#### Response Payload Attributes
-- **code**: String
-- **message**: String
-- **data**: RegisteredClientDetails
-- **httpStatus**: HTTP status code
-
-#### Sequence Diagram
-```
-@startuml
-actor AdminUser
-box "API Gateway" #LightBlue
-participant "api-gateway"
-end box
-box "Role Management MS" #LightGreen
-participant "RoleMgmtMS"
-end box
-participant "PostgresDB"
-
-AdminUser -> api-gateway: GET /v1/roles/{name} (headers)
-api-gateway -> RoleMgmtMS: Forward request
-RoleMgmtMS -> RoleMgmtMS: Validate roleName
-RoleMgmtMS -> PostgresDB: Find role by roleName
-alt Role Found
-PostgresDB -> RoleMgmtMS: Role entity
-RoleMgmtMS -> api-gateway: 200 OK (Role details)
-api-gateway -> AdminUser: 200 OK
-else Role Not Found
-PostgresDB -> RoleMgmtMS: No role found
-RoleMgmtMS -> api-gateway: 404 Not Found
-api-gateway -> AdminUser: 404 Not Found
-end
-else Invalid RoleName
-RoleMgmtMS -> api-gateway: 400 Bad Request
-api-gateway -> AdminUser: 400 Bad Request
-end
-else Unexpected Error
-RoleMgmtMS -> api-gateway: 500 Internal Server Error
-api-gateway -> AdminUser: 500 Internal Server Error
-end
-@enduml
-```
-
-## 3. Get Role By Id
-
-### API Description
-This API retrieves one or more roles identified by their unique role IDs. It validates the role IDs, checks if the roles exist, and returns their details. The flow includes:
-- Validation of role ID(s) presence and format
-- Database lookup for roles by ID
-- Returns role details if found
-- Handles exceptions for not found roles or invalid IDs
-
-### API Details
-| Key                   | Value |
-|-----------------------|-------|
-| End-point             | `/v1/roles/by-id` |
-| Method                | POST |
-| Allowed Scopes        | ManageUserRolesAndPermissions |
-| Request Headers       | None |
-| Request Parameters    | None |
-| Payload               | `RoleIdRequest` (contains list of role IDs) |
-| Request Attribute Definition | `roleId`: Required. List of role unique identifiers (BigInteger). |
-| Response Payload      | `RoleListRepresentation` |
-| Response Status       | <ul><li>200 - OK: Roles found</li><li>404 - Not Found: Role(s) do not exist</li><li>400 - Bad Request: Invalid role ID(s)</li><li>500 - Internal Server Error: Unexpected error</li></ul> |
-
-#### Request Payload Attributes
-- **roleId**: List<BigInteger> (required)
-
-#### Request Attribute Definitions
-| Attribute | Definition |
-|-----------|------------|
-| roleId | Required. List of role unique identifiers. |
-
-#### Response Payload Attributes
-- **roles**: List<RoleRepresentation> (see role response attributes above)
-
-#### Response Attribute Definitions
-| Attribute | Definition |
-|-----------|------------|
-| roles | List of role objects matching IDs |
-
-#### Sequence Diagram
-```plantuml
-@startuml
-actor AdminUser
-box "API Gateway" #LightBlue
-participant "api-gateway"
-end box
-box "Role Management MS" #LightGreen
-participant "RoleMgmtMS"
-end box
-participant "PostgresDB"
-
-AdminUser -> api-gateway: POST /v1/roles/by-id (payload)
-api-gateway -> RoleMgmtMS: Forward request
-RoleMgmtMS -> RoleMgmtMS: Validate roleId(s)
-RoleMgmtMS -> PostgresDB: Find roles by roleId(s)
-alt Roles Found
-PostgresDB -> RoleMgmtMS: Role entities
-RoleMgmtMS -> api-gateway: 200 OK (Role details)
-api-gateway -> AdminUser: 200 OK
-else Role(s) Not Found
-PostgresDB -> RoleMgmtMS: No roles found
-RoleMgmtMS -> api-gateway: 404 Not Found
-api-gateway -> AdminUser: 404 Not Found
-end
-else Invalid roleId(s)
-RoleMgmtMS -> api-gateway: 400 Bad Request
-api-gateway -> AdminUser: 400 Bad Request
-end
-else Unexpected Error
-RoleMgmtMS -> api-gateway: 500 Internal Server Error
-api-gateway -> AdminUser: 500 Internal Server Error
-end
-@enduml
-```
-
----

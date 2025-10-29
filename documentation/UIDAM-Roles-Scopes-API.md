@@ -38,43 +38,6 @@ Creates a new role in the UIDAM system. Validates role name, description, and pe
 |-----------|------------|
 | roles | List of created role objects |
 
-#### Flow Diagram (PlantUML)
-```plantuml
-@startuml
-actor AdminUser
-box "API Gateway" #LightBlue
-participant "api-gateway"
-end box
-box "Role Management MS" #LightGreen
-participant "RoleMgmtMS"
-end box
-participant "PostgresDB"
-
-AdminUser -> api-gateway: POST /v1/roles (payload, headers)
-api-gateway -> RoleMgmtMS: Forward request
-RoleMgmtMS -> RoleMgmtMS: Validate payload fields
-RoleMgmtMS -> PostgresDB: Check for duplicate role
-alt Role Exists
-PostgresDB -> RoleMgmtMS: Role found
-RoleMgmtMS -> api-gateway: 409 Conflict
-api-gateway -> AdminUser: 409 Conflict
-else Role Not Exists
-PostgresDB -> RoleMgmtMS: No role found
-RoleMgmtMS -> PostgresDB: Save role entity
-RoleMgmtMS -> api-gateway: 201 Created (role details)
-api-gateway -> AdminUser: 201 Created
-end
-else Validation Error
-RoleMgmtMS -> api-gateway: 400 Bad Request
-api-gateway -> AdminUser: 400 Bad Request
-end
-else Unexpected Error
-RoleMgmtMS -> api-gateway: 500 Internal Server Error
-api-gateway -> AdminUser: 500 Internal Server Error
-end
-@enduml
-```
-
 ## 2. Get Role By Name
 
 ### API Description
@@ -100,41 +63,6 @@ Retrieves a role by its unique name. Validates the name, checks existence, and r
 | Attribute | Definition |
 |-----------|------------|
 | roles | List of role objects matching name |
-
-#### Flow Diagram (PlantUML)
-```plantuml
-@startuml
-actor AdminUser
-box "API Gateway" #LightBlue
-participant "api-gateway"
-end box
-box "Role Management MS" #LightGreen
-participant "RoleMgmtMS"
-end box
-participant "PostgresDB"
-
-AdminUser -> api-gateway: GET /v1/roles/{name}
-api-gateway -> RoleMgmtMS: Forward request
-RoleMgmtMS -> PostgresDB: Find role by name
-alt Role Found
-PostgresDB -> RoleMgmtMS: Role entity
-RoleMgmtMS -> api-gateway: 200 OK (role details)
-api-gateway -> AdminUser: 200 OK
-else Role Not Found
-PostgresDB -> RoleMgmtMS: No role found
-RoleMgmtMS -> api-gateway: 404 Not Found
-api-gateway -> AdminUser: 404 Not Found
-end
-else Invalid Name
-RoleMgmtMS -> api-gateway: 400 Bad Request
-api-gateway -> AdminUser: 400 Bad Request
-end
-else Unexpected Error
-RoleMgmtMS -> api-gateway: 500 Internal Server Error
-api-gateway -> AdminUser: 500 Internal Server Error
-end
-@enduml
-```
 
 ## 3. Get Role By Id
 
@@ -169,41 +97,6 @@ Retrieves one or more roles by their unique IDs. Validates IDs, checks existence
 | Attribute | Definition |
 |-----------|------------|
 | roles | List of role objects matching IDs |
-
-#### Flow Diagram (PlantUML)
-```plantuml
-@startuml
-actor AdminUser
-box "API Gateway" #LightBlue
-participant "api-gateway"
-end box
-box "Role Management MS" #LightGreen
-participant "RoleMgmtMS"
-end box
-participant "PostgresDB"
-
-AdminUser -> api-gateway: POST /v1/roles/by-id (payload)
-api-gateway -> RoleMgmtMS: Forward request
-RoleMgmtMS -> PostgresDB: Find roles by IDs
-alt Roles Found
-PostgresDB -> RoleMgmtMS: Role entities
-RoleMgmtMS -> api-gateway: 200 OK (role details)
-api-gateway -> AdminUser: 200 OK
-else Roles Not Found
-PostgresDB -> RoleMgmtMS: No roles found
-RoleMgmtMS -> api-gateway: 404 Not Found
-api-gateway -> AdminUser: 404 Not Found
-end
-else Invalid IDs
-RoleMgmtMS -> api-gateway: 400 Bad Request
-api-gateway -> AdminUser: 400 Bad Request
-end
-else Unexpected Error
-RoleMgmtMS -> api-gateway: 500 Internal Server Error
-api-gateway -> AdminUser: 500 Internal Server Error
-end
-@enduml
-```
 
 ## 4. Filter Roles
 
@@ -249,35 +142,6 @@ Filters roles based on criteria such as name, description, permissions, and pagi
 | page | Current page number |
 | size | Page size |
 
-#### Flow Diagram (PlantUML)
-```plantuml
-@startuml
-actor AdminUser
-box "API Gateway" #LightBlue
-participant "api-gateway"
-end box
-box "Role Management MS" #LightGreen
-participant "RoleMgmtMS"
-end box
-participant "PostgresDB"
-
-AdminUser -> api-gateway: POST /v1/roles/filter (payload, query params)
-api-gateway -> RoleMgmtMS: Forward request
-RoleMgmtMS -> PostgresDB: Query roles by filter
-PostgresDB -> RoleMgmtMS: Paginated role list
-RoleMgmtMS -> api-gateway: 200 OK (roles, count, page, size)
-api-gateway -> AdminUser: 200 OK
-else Invalid Filter
-RoleMgmtMS -> api-gateway: 400 Bad Request
-api-gateway -> AdminUser: 400 Bad Request
-end
-else Unexpected Error
-RoleMgmtMS -> api-gateway: 500 Internal Server Error
-api-gateway -> AdminUser: 500 Internal Server Error
-end
-@enduml
-```
-
 ## 5. Update Role
 
 ### API Description
@@ -314,42 +178,6 @@ Updates details of a role identified by its unique name. Validates input, checks
 |-----------|------------|
 | roles | List of updated role objects |
 
-#### Flow Diagram (PlantUML)
-```plantuml
-@startuml
-actor AdminUser
-box "API Gateway" #LightBlue
-participant "api-gateway"
-end box
-box "Role Management MS" #LightGreen
-participant "RoleMgmtMS"
-end box
-participant "PostgresDB"
-
-AdminUser -> api-gateway: PATCH /v1/roles/{name} (payload, headers)
-api-gateway -> RoleMgmtMS: Forward request
-RoleMgmtMS -> PostgresDB: Find role by name
-alt Role Found
-PostgresDB -> RoleMgmtMS: Role entity
-RoleMgmtMS -> PostgresDB: Save updated role
-RoleMgmtMS -> api-gateway: 200 OK (updated role)
-api-gateway -> AdminUser: 200 OK
-else Role Not Found
-PostgresDB -> RoleMgmtMS: No role found
-RoleMgmtMS -> api-gateway: 404 Not Found
-api-gateway -> AdminUser: 404 Not Found
-end
-else Validation Error
-RoleMgmtMS -> api-gateway: 400 Bad Request
-api-gateway -> AdminUser: 400 Bad Request
-end
-else Unexpected Error
-RoleMgmtMS -> api-gateway: 500 Internal Server Error
-api-gateway -> AdminUser: 500 Internal Server Error
-end
-@enduml
-```
-
 ## 6. Delete Role
 
 ### API Description
@@ -375,42 +203,6 @@ Deletes a role identified by its unique name. Validates the name, checks permiss
 | Attribute | Definition |
 |-----------|------------|
 | roles | List of roles after deletion |
-
-#### Flow Diagram (PlantUML)
-```plantuml
-@startuml
-actor AdminUser
-box "API Gateway" #LightBlue
-participant "api-gateway"
-end box
-box "Role Management MS" #LightGreen
-participant "RoleMgmtMS"
-end box
-participant "PostgresDB"
-
-AdminUser -> api-gateway: DELETE /v1/roles/{name} (headers)
-api-gateway -> RoleMgmtMS: Forward request
-RoleMgmtMS -> PostgresDB: Find role by name
-alt Role Found
-PostgresDB -> RoleMgmtMS: Role entity
-RoleMgmtMS -> PostgresDB: Mark role as deleted
-RoleMgmtMS -> api-gateway: 200 OK (roles)
-api-gateway -> AdminUser: 200 OK
-else Role Not Found
-PostgresDB -> RoleMgmtMS: No role found
-RoleMgmtMS -> api-gateway: 404 Not Found
-api-gateway -> AdminUser: 404 Not Found
-end
-else Invalid Name
-RoleMgmtMS -> api-gateway: 400 Bad Request
-api-gateway -> AdminUser: 400 Bad Request
-end
-else Unexpected Error
-RoleMgmtMS -> api-gateway: 500 Internal Server Error
-api-gateway -> AdminUser: 500 Internal Server Error
-end
-@enduml
-```
 
 # Scopes Management API Documentation
 
@@ -450,43 +242,6 @@ Creates a new scope in the UIDAM system. Validates scope name, description, and 
 |-----------|------------|
 | scopes | List of created scope objects |
 
-#### Flow Diagram (PlantUML)
-```plantuml
-@startuml
-actor AdminUser
-box "API Gateway" #LightBlue
-participant "api-gateway"
-end box
-box "Scope Management MS" #LightGreen
-participant "ScopeMgmtMS"
-end box
-participant "PostgresDB"
-
-AdminUser -> api-gateway: POST /v1/scopes (payload, headers)
-api-gateway -> ScopeMgmtMS: Forward request
-ScopeMgmtMS -> ScopeMgmtMS: Validate payload fields
-ScopeMgmtMS -> PostgresDB: Check for duplicate scope
-alt Scope Exists
-PostgresDB -> ScopeMgmtMS: Scope found
-ScopeMgmtMS -> api-gateway: 409 Conflict
-api-gateway -> AdminUser: 409 Conflict
-else Scope Not Exists
-PostgresDB -> ScopeMgmtMS: No scope found
-ScopeMgmtMS -> PostgresDB: Save scope entity
-ScopeMgmtMS -> api-gateway: 201 Created (scope details)
-api-gateway -> AdminUser: 201 Created
-end
-else Validation Error
-ScopeMgmtMS -> api-gateway: 400 Bad Request
-api-gateway -> AdminUser: 400 Bad Request
-end
-else Unexpected Error
-ScopeMgmtMS -> api-gateway: 500 Internal Server Error
-api-gateway -> AdminUser: 500 Internal Server Error
-end
-@enduml
-```
-
 ## 2. Get Scope By Name
 
 ### API Description
@@ -512,41 +267,6 @@ Retrieves a scope by its unique name. Validates the name, checks existence, and 
 | Attribute | Definition |
 |-----------|------------|
 | scopes | List of scope objects matching name |
-
-#### Flow Diagram (PlantUML)
-```plantuml
-@startuml
-actor AdminUser
-box "API Gateway" #LightBlue
-participant "api-gateway"
-end box
-box "Scope Management MS" #LightGreen
-participant "ScopeMgmtMS"
-end box
-participant "PostgresDB"
-
-AdminUser -> api-gateway: GET /v1/scopes/{name}
-api-gateway -> ScopeMgmtMS: Forward request
-ScopeMgmtMS -> PostgresDB: Find scope by name
-alt Scope Found
-PostgresDB -> ScopeMgmtMS: Scope entity
-ScopeMgmtMS -> api-gateway: 200 OK (scope details)
-api-gateway -> AdminUser: 200 OK
-else Scope Not Found
-PostgresDB -> ScopeMgmtMS: No scope found
-ScopeMgmtMS -> api-gateway: 404 Not Found
-api-gateway -> AdminUser: 404 Not Found
-end
-else Invalid Name
-ScopeMgmtMS -> api-gateway: 400 Bad Request
-api-gateway -> AdminUser: 400 Bad Request
-end
-else Unexpected Error
-ScopeMgmtMS -> api-gateway: 500 Internal Server Error
-api-gateway -> AdminUser: 500 Internal Server Error
-end
-@enduml
-```
 
 ## 3. Get All Scopes
 
@@ -579,31 +299,6 @@ Retrieves all scopes in the system. Supports pagination and filtering. Handles e
 | totalCount | Total number of scopes |
 | page | Current page number |
 | size | Page size |
-
-#### Flow Diagram (PlantUML)
-```plantuml
-@startuml
-actor AdminUser
-box "API Gateway" #LightBlue
-participant "api-gateway"
-end box
-box "Scope Management MS" #LightGreen
-participant "ScopeMgmtMS"
-end box
-participant "PostgresDB"
-
-AdminUser -> api-gateway: GET /v1/scopes (query params)
-api-gateway -> ScopeMgmtMS: Forward request
-ScopeMgmtMS -> PostgresDB: Query all scopes
-PostgresDB -> ScopeMgmtMS: Paginated scope list
-ScopeMgmtMS -> api-gateway: 200 OK (scopes, count, page, size)
-api-gateway -> AdminUser: 200 OK
-else Unexpected Error
-ScopeMgmtMS -> api-gateway: 500 Internal Server Error
-api-gateway -> AdminUser: 500 Internal Server Error
-end
-@enduml
-```
 
 ## 4. Update Scope
 
@@ -639,42 +334,6 @@ Updates details of a scope identified by its unique name. Validates input, check
 |-----------|------------|
 | scopes | List of updated scope objects |
 
-#### Flow Diagram (PlantUML)
-```plantuml
-@startuml
-actor AdminUser
-box "API Gateway" #LightBlue
-participant "api-gateway"
-end box
-box "Scope Management MS" #LightGreen
-participant "ScopeMgmtMS"
-end box
-participant "PostgresDB"
-
-AdminUser -> api-gateway: PATCH /v1/scopes/{name} (payload, headers)
-api-gateway -> ScopeMgmtMS: Forward request
-ScopeMgmtMS -> PostgresDB: Find scope by name
-alt Scope Found
-PostgresDB -> ScopeMgmtMS: Scope entity
-ScopeMgmtMS -> PostgresDB: Save updated scope
-ScopeMgmtMS -> api-gateway: 200 OK (updated scope)
-api-gateway -> AdminUser: 200 OK
-else Scope Not Found
-PostgresDB -> ScopeMgmtMS: No scope found
-ScopeMgmtMS -> api-gateway: 404 Not Found
-api-gateway -> AdminUser: 404 Not Found
-end
-else Validation Error
-ScopeMgmtMS -> api-gateway: 400 Bad Request
-api-gateway -> AdminUser: 400 Bad Request
-end
-else Unexpected Error
-ScopeMgmtMS -> api-gateway: 500 Internal Server Error
-api-gateway -> AdminUser: 500 Internal Server Error
-end
-@enduml
-```
-
 ## 5. Delete Scope
 
 ### API Description
@@ -700,39 +359,3 @@ Deletes a scope identified by its unique name. Validates the name, checks permis
 | Attribute | Definition |
 |-----------|------------|
 | scopes | List of scopes after deletion |
-
-#### Flow Diagram (PlantUML)
-```plantuml
-@startuml
-actor AdminUser
-box "API Gateway" #LightBlue
-participant "api-gateway"
-end box
-box "Scope Management MS" #LightGreen
-participant "ScopeMgmtMS"
-end box
-participant "PostgresDB"
-
-AdminUser -> api-gateway: DELETE /v1/scopes/{name} (headers)
-api-gateway -> ScopeMgmtMS: Forward request
-ScopeMgmtMS -> PostgresDB: Find scope by name
-alt Scope Found
-PostgresDB -> ScopeMgmtMS: Scope entity
-ScopeMgmtMS -> PostgresDB: Mark scope as deleted
-ScopeMgmtMS -> api-gateway: 200 OK (scopes)
-api-gateway -> AdminUser: 200 OK
-else Scope Not Found
-PostgresDB -> ScopeMgmtMS: No scope found
-ScopeMgmtMS -> api-gateway: 404 Not Found
-api-gateway -> AdminUser: 404 Not Found
-end
-else Invalid Name
-ScopeMgmtMS -> api-gateway: 400 Bad Request
-api-gateway -> AdminUser: 400 Bad Request
-end
-else Unexpected Error
-ScopeMgmtMS -> api-gateway: 500 Internal Server Error
-api-gateway -> AdminUser: 500 Internal Server Error
-end
-@enduml
-```
